@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Gargalos - Plus Fitness</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏋️</text></svg>">
+    <style>
+        .loader { border: 4px solid #f3f4f6; border-top: 4px solid #3B82F6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        * { transition: background-color 0.2s ease; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- LOGIN -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-700 p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full">
+            <div class="text-center mb-8">
+                <div class="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-4xl">🏋️</span>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800">Plus Fitness</h1>
+                <p class="text-gray-600 mt-2">Dashboard de Análise de Gargalos</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" id="login-email" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="seu@email.com" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
+                    <input type="password" id="login-password" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Digite sua senha" required>
+                </div>
+                <button type="submit" id="login-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">Entrar</button>
+                <p id="error-msg" class="text-red-600 text-sm text-center hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-screen" class="hidden">
+        <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg sticky top-0 z-40">
+            <div class="container mx-auto px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold">🏋️ Plus Fitness</h1>
+                        <p class="text-blue-100 text-sm">Dashboard de Análise de Gargalos</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right text-sm">
+                            <p class="opacity-90">Usuário: <span id="user-email" class="font-semibold"></span></p>
+                            <p class="opacity-90">Atualizado: <span id="last-update" class="font-semibold">--:--</span></p>
+                        </div>
+                        <button onclick="loadData()" class="bg-blue-500 px-3 py-2 rounded-lg hover:bg-blue-600">🔄</button>
+                        <button onclick="handleLogout()" class="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600">Sair</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="loading" class="hidden fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 flex flex-col items-center gap-3">
+                <div class="loader"></div>
+                <p class="text-gray-700 font-medium">Carregando dados...</p>
+            </div>
+        </div>
+
+        <div class="container mx-auto px-6 py-6">
+            <!-- FILTROS -->
+            <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+                <div class="grid grid-cols-4 gap-4">
+                    <div><label class="block text-sm font-medium mb-2">Período</label><select id="filter-period" class="w-full border rounded px-3 py-2"><option value="today">Hoje</option><option value="7days" selected>Últimos 7 dias</option><option value="30days">Últimos 30 dias</option><option value="all">Todo período</option></select></div>
+                    <div><label class="block text-sm font-medium mb-2">Vendedor</label><select id="filter-vendedor" class="w-full border rounded px-3 py-2"><option value="all">Todos</option><option value="Livia">Livia</option><option value="Rafael">Rafael</option></select></div>
+                    <div><label class="block text-sm font-medium mb-2">Tipo</label><select id="filter-tipo" class="w-full border rounded px-3 py-2"><option value="all">Todos</option><option value="PRECO_VALOR">Preço</option><option value="FRETE">Frete</option><option value="PARCELAMENTO">Parcelamento</option></select></div>
+                    <div><label class="block text-sm font-medium mb-2">Risco</label><select id="filter-risco" class="w-full border rounded px-3 py-2"><option value="all">Todos</option><option value="ALTO">Alto</option><option value="MEDIO">Médio</option></select></div>
+                </div>
+            </div>
+
+            <!-- CARDS -->
+            <div class="grid grid-cols-4 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-6"><p class="text-gray-500 text-sm">Total</p><p id="stat-total" class="text-3xl font-bold text-gray-800">0</p></div>
+                <div class="bg-white rounded-lg shadow-md p-6"><p class="text-gray-500 text-sm">Críticos</p><p id="stat-alto" class="text-3xl font-bold text-red-600">0</p></div>
+                <div class="bg-white rounded-lg shadow-md p-6"><p class="text-gray-500 text-sm">Médio</p><p id="stat-medio" class="text-3xl font-bold text-yellow-600">0</p></div>
+                <div class="bg-white rounded-lg shadow-md p-6"><p class="text-gray-500 text-sm">Taxa Sucesso</p><p id="stat-conversao" class="text-3xl font-bold text-green-600">0%</p></div>
+            </div>
+
+            <!-- GRÁFICOS -->
+            <div class="grid grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-6"><h3 class="text-lg font-semibold mb-4">Tipos de Gargalo</h3><canvas id="chart-tipos" style="max-height: 300px;"></canvas></div>
+                <div class="bg-white rounded-lg shadow-md p-6"><h3 class="text-lg font-semibold mb-4">Evolução (7 dias)</h3><canvas id="chart-evolucao" style="max-height: 300px;"></canvas></div>
+            </div>
+
+            <!-- TABELA -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-4">Histórico de Gargalos</h3>
+                <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Data</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Lead</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Vendedor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Tipo</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500">Risco</th></tr></thead><tbody id="table-body" class="divide-y divide-gray-200"></tbody></table></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {URL:'https://bjnqkmvsutdnamfvucxa.supabase.co',KEY:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbnFrbXZzdXRkbmFtZnZ1Y3hhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwMzk3NTMsImV4cCI6MjA4MzYxNTc1M30.8wcb9b4NRwlXi_W15qtdUHNDKxyxPRQhH_26KeXetoA'};
+        const sb = window.supabase.createClient(CONFIG.URL, CONFIG.KEY);
+        let charts = {}, data = [];
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn'), err = document.getElementById('error-msg');
+            btn.innerHTML = '<div class="loader mx-auto" style="width:24px;height:24px;border-width:3px;"></div>';
+            btn.disabled = true; err.classList.add('hidden');
+            try {
+                const {error} = await sb.auth.signInWithPassword({email:document.getElementById('login-email').value,password:document.getElementById('login-password').value});
+                if(error) throw error;
+            } catch(e) {
+                err.textContent = e.message.includes('Invalid')?'❌ Email ou senha incorretos':'❌ '+e.message;
+                err.classList.remove('hidden'); btn.innerHTML='Entrar'; btn.disabled=false;
+            }
+        }
+
+        async function handleLogout() {
+            if(confirm('Sair?')) await sb.auth.signOut();
+        }
+
+        async function loadData() {
+            document.getElementById('loading')?.classList.remove('hidden');
+            try {
+                const {data:d,error} = await sb.from('pf_gargalos').select('*').order('created_at',{ascending:false});
+                if(error) throw error;
+                data = d||[];
+                applyFilters();
+            } catch(e) {
+                alert('Erro: '+e.message);
+            } finally {
+                document.getElementById('loading')?.classList.add('hidden');
+            }
+        }
+
+        function applyFilters() {
+            const p = document.getElementById('filter-period')?.value||'7days';
+            const v = document.getElementById('filter-vendedor')?.value||'all';
+            const t = document.getElementById('filter-tipo')?.value||'all';
+            const r = document.getElementById('filter-risco')?.value||'all';
+            let f = [...data];
+            const now = new Date();
+            if(p==='today') f=f.filter(g=>g.created_at?.startsWith(now.toISOString().split('T')[0]));
+            else if(p==='7days') f=f.filter(g=>new Date(g.created_at)>=new Date(now-7*864e5));
+            else if(p==='30days') f=f.filter(g=>new Date(g.created_at)>=new Date(now-30*864e5));
+            if(v!=='all') f=f.filter(g=>g.vendedor===v);
+            if(t!=='all') f=f.filter(g=>g.gargalo_type===t);
+            if(r!=='all') f=f.filter(g=>g.risk_level===r);
+            updateDash(f);
+        }
+
+        function updateDash(d) {
+            const total=d.length, alto=d.filter(g=>g.risk_level==='ALTO').length, medio=d.filter(g=>g.risk_level==='MEDIO').length;
+            document.getElementById('stat-total').textContent=total;
+            document.getElementById('stat-alto').textContent=alto;
+            document.getElementById('stat-medio').textContent=medio;
+            document.getElementById('stat-conversao').textContent=(total>0?((total-alto)/total*100).toFixed(1):0)+'%';
+            
+            const tipos={};
+            d.forEach(g=>tipos[g.gargalo_type]=(tipos[g.gargalo_type]||0)+1);
+            if(charts.tipos) charts.tipos.destroy();
+            charts.tipos = new Chart(document.getElementById('chart-tipos'),{type:'doughnut',data:{labels:Object.keys(tipos),datasets:[{data:Object.values(tipos),backgroundColor:['#EF4444','#F59E0B','#10B981','#3B82F6']}]},options:{responsive:true,maintainAspectRatio:false}});
+
+            const last7=[...Array(7)].map((_,i)=>{const dd=new Date();dd.setDate(dd.getDate()-(6-i));return dd.toISOString().split('T')[0];});
+            const ev=last7.map(dt=>d.filter(g=>g.created_at?.startsWith(dt)).length);
+            if(charts.ev) charts.ev.destroy();
+            charts.ev = new Chart(document.getElementById('chart-evolucao'),{type:'line',data:{labels:last7.map(dd=>new Date(dd).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})),datasets:[{label:'Gargalos',data:ev,borderColor:'#3B82F6',tension:0.4}]},options:{responsive:true,maintainAspectRatio:false}});
+
+            const html = d.slice(0,50).map(g=>`<tr><td class="px-6 py-4 text-sm">${new Date(g.created_at).toLocaleString('pt-BR')}</td><td class="px-6 py-4 text-sm">${g.lead_name||'N/A'}</td><td class="px-6 py-4 text-sm">${g.vendedor}</td><td class="px-6 py-4 text-sm">${g.gargalo_type}</td><td class="px-6 py-4 text-sm"><span class="px-2 py-1 rounded text-xs ${g.risk_level==='ALTO'?'bg-red-100 text-red-800':'bg-yellow-100 text-yellow-800'}">${g.risk_level}</span></td></tr>`).join('');
+            document.getElementById('table-body').innerHTML=html||'<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Nenhum dado</td></tr>';
+        }
+
+        window.addEventListener('DOMContentLoaded', async()=>{
+            const {data:{session}}=await sb.auth.getSession();
+            if(session) {document.getElementById('login-screen').classList.add('hidden');document.getElementById('dashboard-screen').classList.remove('hidden');document.getElementById('user-email').textContent=session.user.email;loadData();}
+            sb.auth.onAuthStateChange((e,s)=>{if(e==='SIGNED_IN'){document.getElementById('login-screen').classList.add('hidden');document.getElementById('dashboard-screen').classList.remove('hidden');document.getElementById('user-email').textContent=s.user.email;loadData();}else if(e==='SIGNED_OUT'){document.getElementById('login-screen').classList.remove('hidden');document.getElementById('dashboard-screen').classList.add('hidden');}});
+            ['filter-period','filter-vendedor','filter-tipo','filter-risco'].forEach(id=>document.getElementById(id)?.addEventListener('change',applyFilters));
+            setInterval(()=>document.getElementById('last-update').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),60000);
+        });
+    </script>
+</body>
+</html>
